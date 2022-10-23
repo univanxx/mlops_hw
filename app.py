@@ -24,8 +24,7 @@ app = Flask(__name__)
 api = Api(app)
 
 upload_parser = api.parser()
-upload_parser.add_argument('file', location='files',
-                           type=FileStorage, required=True)
+upload_parser.add_argument('file', type=str, default = 'train.csv')
                            
 upload_parser.add_argument('experiment_id',
                            type=str, default="0")
@@ -61,14 +60,12 @@ models = {
 
 # Удаляем NaN-ы из данных
 def prepare_data(df, for_train=True):
+    columns = ['Age', 'Embarked', 'Pclass', 'Sex']
+    df = df.dropna()
     if for_train:
-        columns = ['Age', 'Embarked', 'Pclass', 'Sex', 'Survived']
-        df = df[columns].dropna()
-        return df
+        return df[columns], df['Survived']
     else:
-        columns = ['Age', 'Embarked', 'Pclass', 'Sex']
-        df = df[columns].dropna()
-        return df
+        return df[columns]
         
         
 @api.route('/train', methods=['PUT'], doc={'description': 'Запустить обучение выбранной модели на датасете Titanic'})
@@ -131,14 +128,22 @@ class Train(Resource):
         
         
 @api.route('/models', methods=['GET', 'DELETE'])
+@api.expect(upload_parser)
 class GetModels(Resource):
+    # Смотрим список всех возможных типов моделей
     def get(self):
         return jsonify(models)
     @api.doc(params={'experiment_id': f'Номер эксперимента для удаления'})
     @api.doc(params={'model_name': f'Название модели'})
+    # Удаляем определённую модель
     def delete(self):
-        print('deleted')
-        
+        args = upload_parser.parse_args()
+        delete_filename = "train_results/" + args.model_name + "_" + args.experiment_id + ".pkl"
+        try:
+            os.remove(delete_filename)
+        except FileNotFoundError:
+            return 'Такого файла нет!', 403
+        return 'Модель удалена!', 200
 
 
 @api.route('/predict', methods=['POST'])
@@ -158,14 +163,6 @@ class Predict(Resource):
         # Предсказания
         preds = model.predict(X)
         return {'Предсказания модели': preds.tolist()}, 200
-
-
-#@api.route('/models', methods=[])
-#class DeleteModel(Resource):
-#    @api.doc(params={'experiment_id': f'Номер эксперимента для удаления'})
-#    @api.doc(params={'model_name': f'Название модели'})
-#    def delete(self):
-#        print('a')
         
 
 if __name__ == '__main__':
