@@ -1,19 +1,17 @@
-from typing import *
+# Основные библиотеки
 import pandas as pd
 import os
 import pickle
 import json
-
+# Модели - 3 класса
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.svm import SVC
-
-
+# Для работы с данными и моделью
 from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import make_pipeline
-from sklearn.exceptions import NotFittedError
-
+# Для построения REST-API
 from flask import Flask, jsonify, abort
 from flask_restx import Api, Resource
 from flask_restful import reqparse
@@ -33,11 +31,6 @@ upload_parser.add_argument('model_name', type=str, default="SVC")
                            
 upload_parser.add_argument('path_to_model_params', type=str,
                             required=False, default = 'models_params/SVC_params.json')
-
-feature_columns = ['Age', 'Embarked', 'Pclass', 'Sex']
-target_column = 'Survived'
-all_columns = feature_columns + [target_column]
-
 
 
 models = {
@@ -156,8 +149,7 @@ class Predict(Resource):
         args = upload_parser.parse_args()
         # Загрузка и предобработка данных
         data = pd.read_csv(args.file)
-        X = data[feature_columns]
-        X = prepare_data(X, for_train=False)
+        X = prepare_data(data, for_train=False)
         # Загрузка модели
         model = pickle.load(open('train_results/' + args.model_name + "_" + str(args.experiment_id) + '.pkl', 'rb'))
         # Предсказания
