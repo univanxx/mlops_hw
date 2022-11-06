@@ -46,7 +46,7 @@ def prepare_data(df, for_train=True):
 
 # Парсер и класс для обучения модели
 model_train = api.parser()
-model_train.add_argument('filename', type='str', default='train.csv', required=True)
+model_train.add_argument('file', type=str, default='data/train.csv', required=True)
 model_train.add_argument('experiment_id',
                          type=str, default="0", required=False, location='args')
 model_train.add_argument('model_type',
@@ -64,16 +64,14 @@ model_train.add_argument('model_params',
 @api.expect(model_train)
 class ModelTrain(Resource):
     # Параметры
-    @api.doc(params={'filename': f'Название файла в формате CSV с полями Age, Embarked, Pclass, Sex, Survived'})
+    @api.doc(params={'file': f'Название файла в формате CSV с полями Age, Embarked, Pclass, Sex, Survived'})
     @api.doc(params={'experiment_id': f'Номер эксперимента'})
-    # @api.doc(params={'model_params': f'Параметры модели'})
     @api.doc(params={'model_type': f'Тип модели'})
     # Результаты выполнения
     @api.doc(responses={403: 'Модель с такими параметрами не определена!'})
     @api.doc(responses={200: 'Обучение прошло успешно!'})
     @api.doc(responses={202: 'Модель обучена, но такой эксперимент уже существует!'})
     def put(self):
-
         args = model_train.parse_args()
         # Загрузка модели по её параметрам
         base_model = load_model(args.model_params, args.model_type)
@@ -145,7 +143,7 @@ class DeleteModel(Resource):
 
 
 model_predict = api.parser()
-model_predict.add_argument('filename', type='str', default='train.csv', required=True, location='args')
+model_predict.add_argument('file', type=str, default='data/train.csv', required=True, location='args')
 model_predict.add_argument('experiment_id',
                            type=str, default="0", required=True, location='args')
 model_predict.add_argument('model_type',
@@ -159,7 +157,7 @@ model_predict.add_argument('model_type',
 @api.route('/model_predict', methods=['POST'], doc={'description': 'Предсказание на обученной модели'})
 @api.expect(model_predict)
 class Predict(Resource):
-    @api.doc(params={'filename': f'Название файла в формате CSV с полями Age, Embarked, Pclass, Sex'})
+    @api.doc(params={'file': f'Название файла в формате CSV с полями Age, Embarked, Pclass, Sex'})
     @api.doc(params={'experiment_id': f'Номер эксперимента'})
     @api.doc(params={'model_type': f'Тип модели'})
     @api.doc(responses={200: 'Предсказания модели'})
