@@ -60,7 +60,7 @@ model_train.add_argument('model_params',
                          )
 
 
-@api.route('/model_train', methods=['PUT'], doc={'description': 'Запустить обучение выбранной модели на датасете Titanic'})
+@api.route('/model_train', methods=['PUT'], doc={'description': 'Запустить обучение выбранной модели на датасете Titanic. ОБЯЗАТЕЛЬНО ВВЕСТИ ПАРАМЕТРЫ МОДЕЛИ, ЛИБО ОСТАВИТЬ ПРОСТО {}'})
 @api.expect(model_train)
 class ModelTrain(Resource):
     # Параметры
@@ -69,13 +69,13 @@ class ModelTrain(Resource):
     @api.doc(params={'model_type': f'Тип модели'})
     # Результаты выполнения
     @api.doc(responses={403: 'Модель с такими параметрами не определена!'})
+    @api.doc(responses={400: 'Файл с таким именем не найден'})
     @api.doc(responses={200: 'Обучение прошло успешно!'})
     @api.doc(responses={202: 'Модель обучена, но такой эксперимент уже существует!'})
     def put(self):
         args = model_train.parse_args()
         # Загрузка модели по её параметрам
         base_model = load_model(args.model_params, args.model_type)
-        print(base_model)
         if base_model == 0:
             api.abort(403, message="Модель с такими параметрами не определена!")
 
@@ -89,7 +89,10 @@ class ModelTrain(Resource):
             base_model
         )
         # Чтение данных и предобработка
-        data = pd.read_csv(args.file)
+        try:
+            data = pd.read_csv(args.file)
+        except FileNotFoundError:
+            api.abort(400, 'Файл с таким именем не найден')
         X, y = prepare_data(data)
         # Фит модели и сохранение
         model.fit(X, y)
@@ -160,14 +163,18 @@ class Predict(Resource):
     @api.doc(params={'file': f'Название файла в формате CSV с полями Age, Embarked, Pclass, Sex'})
     @api.doc(params={'experiment_id': f'Номер эксперимента'})
     @api.doc(params={'model_type': f'Тип модели'})
-    @api.doc(responses={200: 'Предсказания модели'})
+    @api.doc(responses={200: 'Успешное предсказание модели'})
+    @api.doc(responses={403: 'Модели с таким экспериментом нет!'})
     def post(self):
         args = model_predict.parse_args()
         # Загрузка и предобработка данных
         data = pd.read_csv(args.file)
         X = prepare_data(data, for_train=False)
         # Загрузка модели
-        model = pickle.load(open('train_results/' + args.model_type + "_" + str(args.experiment_id) + '.pkl', 'rb'))
+        try:
+            model = pickle.load(open('train_results/' + args.model_type + "_" + str(args.experiment_id) + '.pkl', 'rb'))
+        except FileNotFoundError:
+            return 'Модели с таким экспериментом нет!', 403
         # Предсказания
         preds = model.predict(X)
         return {'Предсказания модели': preds.tolist()}, 200
