@@ -1,11 +1,9 @@
 # Основные библиотеки
-import pandas as pd
 import os
 import pickle
-import json
-import ast
 
 # Для работы с данными и моделью
+import pandas as pd
 from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import make_pipeline
