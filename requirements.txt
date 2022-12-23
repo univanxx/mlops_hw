@@ -1,5 +1,8 @@
 scikit-learn==1.1.2
-flask==1.1.4
+flask==2.1.2
 flask_restx==0.5.1
 pandas==1.5.1
 markupsafe==2.0.1
+sqlalchemy
+psycopg2-binary
+werkzeug<=2.1.2
