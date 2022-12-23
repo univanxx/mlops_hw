@@ -1,6 +1,7 @@
 # Основные библиотеки
 import os
 import pickle
+from io import BytesIO
 
 # Для работы с данными и моделью
 import pandas as pd
@@ -11,9 +12,21 @@ from model_loading import load_model
 # Для построения REST-API
 from flask import Flask, jsonify
 from flask_restx import Api, Resource
+# Для работы с БД-шкой
+from sqlalchemy import create_engine
+import psycopg2
 
 app = Flask(__name__)
 api = Api(app)
+
+# Подключение к БД-шке
+POSTGRES_DB = "mlops_db"
+POSTGRES_USER = "bestuser"
+POSTGRES_PASSWORD = "hellokek"
+POSTGRES_HOST = "localhost"
+
+CONNECTION_URL = f"postgresql+psycopg2://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:5432/{POSTGRES_DB}"
+
 
 # Список возможных моделей
 models = {
@@ -94,7 +107,21 @@ class ModelTrain(Resource):
         X, y = prepare_data(data)
         # Фит модели и сохранение
         model.fit(X, y)
-        # Сохранение результата
+        # Сохранение результата 
+
+        client = create_engine(CONNECTION_URL)
+        buffer = BytesIO()
+        pickle.dump(model, buffer)
+        buffer.seek(0)
+        client.execute(
+            f"""
+                INSERT INTO models_logs (experiment_id, model_weights, model_name)
+                VALUES (%s, %s, %s)
+            """,
+            (args.experiment_id, psycopg2.Binary(buffer.read()), args.model_type)
+        )
+        client.dispose()
+
         save_filename = "train_results/" + args.model_type + "_" + args.experiment_id + ".pkl"
         os.makedirs(os.path.dirname(save_filename), exist_ok=True)
         # Смотрим, проводилось ли ранее обучение по заданному номеру эксперимента
@@ -135,6 +162,17 @@ class DeleteModel(Resource):
     @api.doc(responses={200: 'Эксперимент удалён'})
     def delete(self):
         args = model_delete.parse_args()
+
+        client = create_engine(CONNECTION_URL)
+        client.execute(
+            f"""
+                DELETE FROM models_logs
+                WHERE experiment_id = %s AND model_name = %s
+            """,
+            (args.experiment_id, args.model_type)
+        )
+        client.dispose()
+
         delete_filename = "train_results/" + args.model_type + "_" + args.experiment_id + ".pkl"
         try:
             os.remove(delete_filename)
@@ -169,6 +207,15 @@ class Predict(Resource):
         data = pd.read_csv(args.file)
         X = prepare_data(data, for_train=False)
         # Загрузка модели
+
+        
+        client = create_engine(CONNECTION_URL)
+        model_raw = client.execute(
+        f"""SELECT model_weights FROM models_logs WHERE model_name = '{args.model_type}'
+        AND experiment_id = '{args.experiment_id}';
+        """).fetchone()[0]
+        model = pickle.loads(model_raw)
+        client.dispose()
         try:
             model = pickle.load(open('train_results/' + args.model_type + "_" + str(args.experiment_id) + '.pkl', 'rb'))
         except FileNotFoundError:
