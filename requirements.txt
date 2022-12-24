@@ -6,3 +6,4 @@ markupsafe==2.0.1
 sqlalchemy
 psycopg2-binary
 werkzeug<=2.1.2
+pytest-mock
